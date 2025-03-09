@@ -105,8 +105,7 @@ dependencies {
 
     // logger
     implementation("org.slf4j:slf4j-api:2.0.7")
-    implementation("io.github.oshai:kotlin-logging-jvm:7.0.3")
-//    implementation("com.github.tony19:logback-android:3.0.0")
+    implementation("io.github.oshai:kotlin-logging-android:7.0.5")
 }
 
 // Allow references to generated code
