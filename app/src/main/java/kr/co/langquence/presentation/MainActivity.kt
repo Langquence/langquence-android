@@ -1,4 +1,4 @@
-package kr.co.langquence.presentation.ui.home
+package kr.co.langquence.presentation
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -11,7 +11,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kr.co.langquence.presentation.theme.AppTheme
 
 @AndroidEntryPoint
-class HomeActivity : ComponentActivity() {
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
