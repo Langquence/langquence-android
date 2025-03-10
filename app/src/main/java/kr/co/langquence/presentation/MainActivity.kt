@@ -1,4 +1,4 @@
-package kr.co.langquence.presentation.ui.home
+package kr.co.langquence.presentation
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -8,10 +8,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import dagger.hilt.android.AndroidEntryPoint
+import kr.co.langquence.presentation.navigation.AppNavHost
 import kr.co.langquence.presentation.theme.AppTheme
 
 @AndroidEntryPoint
-class HomeActivity : ComponentActivity() {
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -20,6 +21,7 @@ class HomeActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    AppNavHost()
                 }
             }
         }
