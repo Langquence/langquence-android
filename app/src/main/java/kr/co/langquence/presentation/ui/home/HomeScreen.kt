@@ -1,5 +1,8 @@
 package kr.co.langquence.presentation.ui.home
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +16,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -22,20 +26,59 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kr.co.langquence.presentation.component.NavHeader
+import kr.co.langquence.presentation.navigation.Routes
 import kr.co.langquence.presentation.ui.home.HomeConstants.BORDER_COLOR_LISTENING
 import kr.co.langquence.presentation.ui.home.HomeConstants.BORDER_COLOR_NORMAL
 import kr.co.langquence.presentation.ui.home.HomeConstants.MAIN_CONTAINER_SIZE
 import kr.co.langquence.presentation.ui.home.HomeConstants.MIC_BUTTON_SIZE
+import kr.co.langquence.presentation.viewmodel.home.VoiceRecognitionState
 import kr.co.langquence.presentation.viewmodel.home.VoiceViewModel
 
+val log = KotlinLogging.logger {}
 
 @Composable
 fun HomeScreen(
 	viewModel: VoiceViewModel = hiltViewModel(),
-	onNavigateToProfile: () -> Unit
+	onNavigateToProfile: () -> Unit,
+	navController: NavController = rememberNavController()
 ) {
-	val isListeningMode by viewModel.isListeningMode.collectAsState()
+	val voiceState by viewModel.voiceState.collectAsState()
+	val hasPermission by viewModel.hasAudioPermission.collectAsState()
+
+	// 권한 요청 런처
+	val requestPermissionLauncher = rememberLauncherForActivityResult(
+		contract = ActivityResultContracts.RequestPermission(),
+		onResult = { isGranted ->
+			viewModel.updatePermissionStatus(isGranted)
+			if (isGranted) {
+				viewModel.toggleListeningMode()
+			}
+		}
+	)
+
+	// 권한 확인 및 요청
+	fun checkAndRequestPermission() {
+		if (!hasPermission) {
+			log.info { "음성 인식을 위한 권한 인증 요청" }
+
+			requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+			requestPermissionLauncher.launch(Manifest.permission.INTERNET)
+		} else {
+			viewModel.toggleListeningMode()
+		}
+	}
+
+	// 음성 인식 성공 시 결과 화면으로 이동
+	LaunchedEffect(voiceState) {
+		if (voiceState is VoiceRecognitionState.Success) {
+			val text = (voiceState as VoiceRecognitionState.Success).text
+			 navController.navigate(Routes.voiceResultRoute(text))
+		}
+	}
 
 	Scaffold(
 		topBar = {
@@ -72,11 +115,12 @@ fun HomeScreen(
 				) {
 					Column(
 						modifier = Modifier.fillMaxSize(),
-						horizontalAlignment = Alignment.CenterHorizontally
+						horizontalAlignment = Alignment.CenterHorizontally,
+						verticalArrangement = Arrangement.Center
 					) {
 						VoiceButton(
-							isListening = isListeningMode,
-							onToggle = { viewModel.toggleListeningMode() }
+							isListening = voiceState is VoiceRecognitionState.Listening,
+							onToggle = { checkAndRequestPermission() }
 						)
 					}
 				}
