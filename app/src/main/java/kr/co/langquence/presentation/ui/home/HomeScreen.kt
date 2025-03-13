@@ -26,11 +26,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kr.co.langquence.presentation.component.NavHeader
-import kr.co.langquence.presentation.navigation.Routes
 import kr.co.langquence.presentation.ui.home.HomeConstants.BORDER_COLOR_LISTENING
 import kr.co.langquence.presentation.ui.home.HomeConstants.BORDER_COLOR_NORMAL
 import kr.co.langquence.presentation.ui.home.HomeConstants.MAIN_CONTAINER_SIZE
@@ -44,7 +41,7 @@ val log = KotlinLogging.logger {}
 fun HomeScreen(
 	viewModel: VoiceViewModel = hiltViewModel(),
 	onNavigateToProfile: () -> Unit,
-	navController: NavController = rememberNavController()
+	onNavigateToResult: () -> Unit
 ) {
 	val voiceState by viewModel.voiceState.collectAsState()
 	val hasPermission by viewModel.hasAudioPermission.collectAsState()
@@ -75,8 +72,7 @@ fun HomeScreen(
 	// 음성 인식 성공 시 결과 화면으로 이동
 	LaunchedEffect(voiceState) {
 		if (voiceState is VoiceRecognitionState.Success) {
-			val text = (voiceState as VoiceRecognitionState.Success).text
-			 navController.navigate(Routes.voiceResultRoute(text))
+			onNavigateToResult()
 		}
 	}
 
@@ -160,5 +156,5 @@ fun VoiceButton(
 @Preview(showBackground = true)
 @Composable
 fun HomeScreenPreview() {
-	HomeScreen(onNavigateToProfile = {})
+	HomeScreen(onNavigateToProfile = {}, onNavigateToResult = {})
 }
