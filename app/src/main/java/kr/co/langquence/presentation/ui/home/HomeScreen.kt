@@ -27,12 +27,12 @@ import kr.co.langquence.presentation.ui.home.HomeConstants.BORDER_COLOR_LISTENIN
 import kr.co.langquence.presentation.ui.home.HomeConstants.BORDER_COLOR_NORMAL
 import kr.co.langquence.presentation.ui.home.HomeConstants.MAIN_CONTAINER_SIZE
 import kr.co.langquence.presentation.ui.home.HomeConstants.MIC_BUTTON_SIZE
-import kr.co.langquence.presentation.viewmodel.home.HomeViewModel
+import kr.co.langquence.presentation.viewmodel.home.VoiceViewModel
 
 
 @Composable
 fun HomeScreen(
-	viewModel: HomeViewModel = hiltViewModel(),
+	viewModel: VoiceViewModel = hiltViewModel(),
 	onNavigateToProfile: () -> Unit
 ) {
 	val isListeningMode by viewModel.isListeningMode.collectAsState()
