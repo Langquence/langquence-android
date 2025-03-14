@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-val log = KotlinLogging.logger {}
+private val log = KotlinLogging.logger {}
 
 sealed class VoiceRecognitionState {
 	object Idle : VoiceRecognitionState()
@@ -39,28 +39,23 @@ class VoiceViewModel @Inject constructor(
 	private val _voiceState = MutableStateFlow<VoiceRecognitionState>(VoiceRecognitionState.Idle)
 	val voiceState: StateFlow<VoiceRecognitionState> = _voiceState.asStateFlow()
 
-	private val _hasAudioPermission = MutableStateFlow(false)
-	val hasAudioPermission: StateFlow<Boolean> = _hasAudioPermission.asStateFlow()
-
-	init {
-		checkAudioPermission()
-//		initSpeechRecognizer()
-	}
+	private val _permissionRequest = MutableStateFlow(false)
+	val permissionRequest: StateFlow<Boolean> = _permissionRequest.asStateFlow()
 
     /**
      * 음성 인식 모드 토글
      */
     fun toggleListeningMode() {
         viewModelScope.launch {
-			log.info { "toggleListeningMode's current state : ${_voiceState.value}" }
+	        if (!hasAudioPermission()) {
+		        requestAudioPermission()
+		        return@launch
+	        }
+	        log.info { "current voice state : ${_voiceState.value}" }
+
             when (_voiceState.value) {
                 is VoiceRecognitionState.Idle -> {
-                    if (_hasAudioPermission.value) {
-						log.info { "Audio permission already granted" }
-                        startVoiceRecognition()
-                    } else {
-                        _voiceState.value = VoiceRecognitionState.Error("마이크 권한이 필요합니다")
-                    }
+					startVoiceRecognition()
                 }
                 is VoiceRecognitionState.Listening -> {
                     stopVoiceRecognition()
@@ -69,73 +64,69 @@ class VoiceViewModel @Inject constructor(
                 is VoiceRecognitionState.Success,
                 is VoiceRecognitionState.Error -> {
 					log.error { "VoiceViewModel's state is Error" }
+
                     _voiceState.value = VoiceRecognitionState.Idle
                 }
             }
         }
     }
 
-	/**
-	 * 권한 체크 결과 업데이트
-	 */
-	fun updatePermissionStatus(granted: Boolean) {
-		_hasAudioPermission.value = granted
+	fun resetPermissionRequest() {
+		_permissionRequest.value = false
 	}
 
 	/**
 	 * 마이크 권한 체크
 	 */
-	private fun checkAudioPermission() {
-		_hasAudioPermission.value = ContextCompat.checkSelfPermission(
+	private fun hasAudioPermission(): Boolean {
+		return ContextCompat.checkSelfPermission(
 			context,
 			Manifest.permission.RECORD_AUDIO
 		) == PackageManager.PERMISSION_GRANTED
 	}
 
 	/**
-	 * 음성 인식 초기화
+	 * 마이크 권한 요청 이벤트 발행
 	 */
-	private fun initSpeechRecognizer() {
-		if (SpeechRecognizer.isRecognitionAvailable(context)) {
-			log.info { "VoiceViewModel's speech recognition is available" }
-			speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
-			speechRecognizer?.setRecognitionListener(recognitionListener)
-		} else {
-			log.warn { "VoiceViewModel's speech recognition is NOT available" }
-			_voiceState.value = VoiceRecognitionState.Error("음성 인식을 사용할 수 없습니다")
-		}
+	private fun requestAudioPermission() {
+		log.info { "Request audio permission" }
+		_permissionRequest.value = true
 	}
 
 	/**
 	 * 음성 인식 시작
 	 */
 	private fun startVoiceRecognition() {
-		val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-				putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-				putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
-				putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-				putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-				putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
-			}
+		val intent = createSpeechRecognitionIntent()
 
 		val speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
 		speechRecognizer.setRecognitionListener(recognitionListener)
-		speechRecognizer.startListening(intent)
+
 		_voiceState.value = VoiceRecognitionState.Listening
 		this.speechRecognizer = speechRecognizer
 
-		log.info { "start voice recognition" }
+		speechRecognizer.startListening(intent)
+	}
+
+	private fun createSpeechRecognitionIntent() = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+		putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+		putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
+		putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+		putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+		putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
 	}
 
 	/**
 	 * 음성 인식 중단
 	 */
 	private fun stopVoiceRecognition() {
-		speechRecognizer?.stopListening()
-		speechRecognizer?.destroy()
-		speechRecognizer = null
+		log.info { "Stopping voice recognition, current state: ${_voiceState.value}" }
 
-		log.info { "stop voice recognition : state --> ${_voiceState.value}" }
+		speechRecognizer?.apply {
+			stopListening()
+			destroy()
+		}
+		speechRecognizer = null
 	}
 
     /**
@@ -143,54 +134,53 @@ class VoiceViewModel @Inject constructor(
      */
     private val recognitionListener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
-			log.info { "onReadyForSpeech" }
+			log.info { "Speech recognition ready for speech" }
 		}
 
         override fun onBeginningOfSpeech() {
-			log.info { "onBeginningOfSpeech" }
+			log.info { "Beginning of speech detected" }
 		}
 
         override fun onRmsChanged(rmsdB: Float) {}
 
         override fun onBufferReceived(buffer: ByteArray?) {}
 
-        override fun onEndOfSpeech() {}
+        override fun onEndOfSpeech() {
+	        log.info { "End of speech detected" }
+		}
 
         override fun onError(error: Int) {
-            val message = when (error) {
-                SpeechRecognizer.ERROR_AUDIO -> "오디오 에러"
-                SpeechRecognizer.ERROR_CLIENT -> "클라이언트 에러"
-                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "권한 에러"
-                SpeechRecognizer.ERROR_NETWORK -> "네트워크 에러"
-                SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "네트워크 타임아웃"
-                SpeechRecognizer.ERROR_NO_MATCH -> "인식 결과 없음"
-                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "음성 인식 서비스 사용 중"
-                SpeechRecognizer.ERROR_SERVER -> "서버 에러"
-                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "음성 입력 없음"
-                else -> "알 수 없는 에러"
-            }
+            val errorMessage = getSpeechRecognitionErrorMessage(error)
+	        log.error { "Speech recognition error: $errorMessage (code: $error)" }
 
-            if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
-                _voiceState.value = VoiceRecognitionState.NoInput
-            } else {
-                _voiceState.value = VoiceRecognitionState.Error(message)
-            }
-
-	        log.error { "recognition error: $message" }
+	        when (error) {
+		        SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
+			        _voiceState.value = VoiceRecognitionState.NoInput
+		        }
+		        else -> {
+			        _voiceState.value = VoiceRecognitionState.Error(errorMessage)
+		        }
+	        }
         }
 
         override fun onResults(results: Bundle?) {
             val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-	        log.info { "recognition matches $matches" }
+	        log.info { "Speech recognition results received: ${matches?.size ?: 0} matches" }
 
             if (!matches.isNullOrEmpty()) {
                 val recognizedText = matches[0]
                 if (recognizedText.isNotBlank()) {
+	                log.info { "Successfully recognized: \"$recognizedText\"" }
+
                     _voiceState.value = VoiceRecognitionState.Success(recognizedText)
                 } else {
+	                log.warn { "Recognized text was blank" }
+
                     _voiceState.value = VoiceRecognitionState.NoInput
                 }
             } else {
+	            log.warn { "No recognition matches found" }
+
                 _voiceState.value = VoiceRecognitionState.NoInput
             }
         }
@@ -199,4 +189,17 @@ class VoiceViewModel @Inject constructor(
 
         override fun onEvent(eventType: Int, params: Bundle?) {}
     }
+
+	private fun getSpeechRecognitionErrorMessage(error: Int): String = when (error) {
+		SpeechRecognizer.ERROR_AUDIO -> "오디오 에러"
+		SpeechRecognizer.ERROR_CLIENT -> "클라이언트 에러"
+		SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "권한 에러"
+		SpeechRecognizer.ERROR_NETWORK -> "네트워크 에러"
+		SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "네트워크 타임아웃"
+		SpeechRecognizer.ERROR_NO_MATCH -> "인식 결과 없음"
+		SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "음성 인식 서비스 사용 중"
+		SpeechRecognizer.ERROR_SERVER -> "서버 에러"
+		SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "음성 입력 없음"
+		else -> "알 수 없는 에러"
+	}
 }

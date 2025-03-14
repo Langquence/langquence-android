@@ -28,14 +28,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kr.co.langquence.presentation.component.NavHeader
-import kr.co.langquence.presentation.ui.home.HomeConstants.BORDER_COLOR_LISTENING
-import kr.co.langquence.presentation.ui.home.HomeConstants.BORDER_COLOR_NORMAL
-import kr.co.langquence.presentation.ui.home.HomeConstants.MAIN_CONTAINER_SIZE
 import kr.co.langquence.presentation.ui.home.HomeConstants.MIC_BUTTON_SIZE
 import kr.co.langquence.presentation.viewmodel.home.VoiceRecognitionState
 import kr.co.langquence.presentation.viewmodel.home.VoiceViewModel
 
-val log = KotlinLogging.logger {}
+private val log = KotlinLogging.logger {}
 
 @Composable
 fun HomeScreen(
@@ -44,35 +41,29 @@ fun HomeScreen(
 	onNavigateToResult: () -> Unit
 ) {
 	val voiceState by viewModel.voiceState.collectAsState()
-	val hasPermission by viewModel.hasAudioPermission.collectAsState()
+	val permissionRequest by viewModel.permissionRequest.collectAsState()
 
-	// 권한 요청 런처
 	val requestPermissionLauncher = rememberLauncherForActivityResult(
 		contract = ActivityResultContracts.RequestPermission(),
 		onResult = { isGranted ->
-			viewModel.updatePermissionStatus(isGranted)
 			if (isGranted) {
+				viewModel.resetPermissionRequest()
 				viewModel.toggleListeningMode()
 			}
 		}
 	)
 
-	// 권한 확인 및 요청
-	fun checkAndRequestPermission() {
-		if (!hasPermission) {
-			log.info { "음성 인식을 위한 권한 인증 요청" }
-
-			requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-			requestPermissionLauncher.launch(Manifest.permission.INTERNET)
-		} else {
-			viewModel.toggleListeningMode()
-		}
-	}
-
 	// 음성 인식 성공 시 결과 화면으로 이동
 	LaunchedEffect(voiceState) {
 		if (voiceState is VoiceRecognitionState.Success) {
 			onNavigateToResult()
+		}
+	}
+
+	// 음성 권한 요청 시, 권환 획득 컴포즈 실행
+	LaunchedEffect(permissionRequest) {
+		if (permissionRequest) {
+			requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
 		}
 	}
 
@@ -91,34 +82,51 @@ fun HomeScreen(
 			)
 		}
 	) { paddingValues ->
-		Box(
+		HomeContent(
+			modifier = Modifier.padding(paddingValues),
+			isListening = voiceState is VoiceRecognitionState.Listening,
+			onVoiceButtonClick = {
+				log.info { "Voice button clicked, toggling listening mode" }
+
+				viewModel.toggleListeningMode()
+			}
+		)
+	}
+}
+
+
+@Composable
+private fun HomeContent(
+	modifier: Modifier = Modifier,
+	isListening: Boolean,
+	onVoiceButtonClick: () -> Unit
+) {
+	Box(
+		modifier = modifier
+			.fillMaxSize()
+			.background(Color.DarkGray)
+	) {
+		Column(
 			modifier = Modifier
 				.fillMaxSize()
-				.background(Color.DarkGray)
-				.padding(paddingValues)
+				.padding(16.dp),
+			verticalArrangement = Arrangement.Center,
+			horizontalAlignment = Alignment.CenterHorizontally
 		) {
-			Column(
+			Box(
 				modifier = Modifier
-					.fillMaxSize()
-					.padding(16.dp),
-				verticalArrangement = Arrangement.Center,
-				horizontalAlignment = Alignment.CenterHorizontally
+					.size(HomeConstants.MAIN_CONTAINER_SIZE.dp)
+					.background(Color.DarkGray)
 			) {
-				Box(
-					modifier = Modifier
-						.size(MAIN_CONTAINER_SIZE.dp)
-						.background(Color.DarkGray)
+				Column(
+					modifier = Modifier.fillMaxSize(),
+					horizontalAlignment = Alignment.CenterHorizontally,
+					verticalArrangement = Arrangement.Center
 				) {
-					Column(
-						modifier = Modifier.fillMaxSize(),
-						horizontalAlignment = Alignment.CenterHorizontally,
-						verticalArrangement = Arrangement.Center
-					) {
-						VoiceButton(
-							isListening = voiceState is VoiceRecognitionState.Listening,
-							onToggle = { checkAndRequestPermission() }
-						)
-					}
+					VoiceButton(
+						isListening = isListening,
+						onToggle = onVoiceButtonClick
+					)
 				}
 			}
 		}
@@ -130,13 +138,17 @@ fun VoiceButton(
 	isListening: Boolean,
 	onToggle: () -> Unit
 ) {
+	val buttonColor = if (isListening) HomeConstants.BORDER_COLOR_LISTENING else HomeConstants.BORDER_COLOR_NORMAL
+	val iconVector = if (isListening) Icons.Default.KeyboardArrowUp else Icons.Default.Face
+	val contentDescription = if (isListening) "Stop Listening" else "Start Listening"
+
 	Box(
 		modifier = Modifier
 			.size(MIC_BUTTON_SIZE.dp)
 			.clip(CircleShape)
 			.border(
 				width = 2.dp,
-				color = if (isListening) BORDER_COLOR_LISTENING else BORDER_COLOR_NORMAL,
+				color = buttonColor,
 				shape = CircleShape
 			)
 			.background(Color.DarkGray)
@@ -145,8 +157,8 @@ fun VoiceButton(
 		contentAlignment = Alignment.Center
 	) {
 		Icon(
-			imageVector = if (isListening) Icons.Default.KeyboardArrowUp else Icons.Default.Face,
-			contentDescription = if (isListening) "Stop Listening" else "Start Listening",
+			imageVector = iconVector,
+			contentDescription = contentDescription,
 			tint = Color.White,
 			modifier = Modifier.size(40.dp)
 		)
