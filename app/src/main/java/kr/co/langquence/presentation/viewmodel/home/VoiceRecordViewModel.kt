@@ -36,13 +36,13 @@ class VoiceRecordViewModel @Inject constructor(
 	@ApplicationContext private val context: Context
 ): ViewModel() {
 	private companion object {
-		var audioRecord: AudioRecord? = null
-
 		const val SAMPLE_RATE = 44100
 		const val MIN_BUFF_SIZE = 1024
 		const val MAX_RECORDING_TIME_MS = 60000L
 		const val COUNTDOWN_INTERVAL = 1000L
 	}
+
+	private var audioRecord: AudioRecord? = null
 
 	private val _voiceState = MutableStateFlow<VoiceRecognitionState>(VoiceRecognitionState.Idle)
 	val voiceState: StateFlow<VoiceRecognitionState> = _voiceState.asStateFlow()
