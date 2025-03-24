@@ -1,6 +1,6 @@
 package kr.co.langquence.data.remote
 
-import kr.co.langquence.model.domain.CorrectAnswer
+import kr.co.langquence.data.dto.response.CorrectResponse
 import retrofit2.http.Body
 import retrofit2.http.POST
 
@@ -10,5 +10,5 @@ interface CorrectApi {
 	}
 
 	@POST(CORRECT_API_URL)
-	suspend fun request(@Body request: ByteArray): CorrectAnswer
+	suspend fun request(@Body request: ByteArray): CorrectResponse
 }

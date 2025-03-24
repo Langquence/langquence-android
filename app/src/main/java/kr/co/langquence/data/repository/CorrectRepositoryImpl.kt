@@ -8,5 +8,5 @@ import javax.inject.Inject
 class CorrectRepositoryImpl @Inject constructor(
 	private val api: CorrectApi
 ): CorrectRepository {
-	override suspend fun request(body: ByteArray): CorrectAnswer = api.request(body)
+	override suspend fun request(body: ByteArray): CorrectAnswer = api.request(body).toEntity()
 }
