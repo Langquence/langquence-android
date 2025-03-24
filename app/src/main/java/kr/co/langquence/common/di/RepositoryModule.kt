@@ -4,8 +4,8 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kr.co.langquence.data.remote.CorrectApi
 import kr.co.langquence.data.repository.CorrectRepositoryImpl
-import kr.co.langquence.model.repository.CorrectRepository
 import javax.inject.Singleton
 
 @Module
@@ -13,5 +13,5 @@ import javax.inject.Singleton
 class RepositoryModule {
 	@Singleton
 	@Provides
-	fun provideCorrectRepository(api: CorrectRepository): CorrectRepositoryImpl = CorrectRepositoryImpl(api)
+	fun provideCorrectRepository(api: CorrectApi): CorrectRepositoryImpl = CorrectRepositoryImpl(api)
 }
