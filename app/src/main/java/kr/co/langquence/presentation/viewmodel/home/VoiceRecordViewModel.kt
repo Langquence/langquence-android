@@ -12,12 +12,14 @@ import android.os.Handler
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
+import kr.co.langquence.model.domain.Resource
+import kr.co.langquence.model.usecase.CorrectUseCase
+import kr.co.langquence.presentation.viewmodel.state.CorrectState
 import javax.inject.Inject
 import kotlin.math.abs
 
@@ -33,7 +35,8 @@ sealed class VoiceRecognitionState {
 
 @HiltViewModel
 class VoiceRecordViewModel @Inject constructor(
-	@ApplicationContext private val context: Context
+	@ApplicationContext private val context: Context,
+	private val correctUseCase: CorrectUseCase
 ): ViewModel() {
 	private companion object {
 		const val SAMPLE_RATE = 44100
@@ -52,6 +55,9 @@ class VoiceRecordViewModel @Inject constructor(
 
 	private val _timerValue = MutableStateFlow(60)
 	val timerValue: StateFlow<Int> = _timerValue.asStateFlow()
+
+	private val _correctState: MutableStateFlow<CorrectState> = MutableStateFlow(CorrectState())
+	val correctState: StateFlow<CorrectState> = _correctState.asStateFlow()
 
 	private var countDownTimer: CountDownTimer? = null
 	private val audioHandler = Handler(Looper.getMainLooper())
@@ -188,6 +194,22 @@ class VoiceRecordViewModel @Inject constructor(
 	private fun cancelTimer() {
 		countDownTimer?.cancel()
 		countDownTimer = null
+	}
+
+	private fun requestCorrectAnswer(bytes: ByteArray) {
+		correctUseCase.invoke(bytes)
+			.onEach { result ->
+				when(result) {
+					is Resource.Success -> {
+						_correctState.value = CorrectState(data = result.data)
+					}
+					is Resource.Loading -> {}
+					is Resource.Error -> {
+						log.error { "failed ViewModel ${result.message}" }
+						_correctState.value = CorrectState(reason = result.message)
+					}
+				}
+			}.launchIn(viewModelScope)
 	}
 
 	private val audioRoutingListener = AudioRouting.OnRoutingChangedListener { router ->
