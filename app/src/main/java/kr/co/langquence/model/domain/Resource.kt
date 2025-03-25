@@ -1,4 +1,4 @@
-package kr.co.langquence.infrastructure.network
+package kr.co.langquence.model.domain
 
 sealed class Resource<T>(val data: T? = null, val message: String? = null) {
 	class Success<T>(data: T) : Resource<T>(data)
