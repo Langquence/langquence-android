@@ -167,6 +167,9 @@ class VoiceRecordViewModel @Inject constructor(
 		}
 
 		cancelTimer()
+
+		requestCorrectAnswer(buffer)
+
 		audioRecord?.apply {
 			if (state == AudioRecord.STATE_INITIALIZED) {
 				removeOnRoutingChangedListener(audioRoutingListener)
