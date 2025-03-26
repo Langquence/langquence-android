@@ -121,11 +121,6 @@ class VoiceRecordViewModel @Inject constructor(
         val wavBytes = WavUtil.addWavHeader(audioBytes, sampleRate)
         log.info { "Created WAV stream with size: ${wavBytes.size} bytes" }
 
-        viewModelScope.launch {
-            val filePath = WavUtil.saveWavFile(context, wavBytes)
-            log.info { "WAV 파일 저장 경로: $filePath" }
-        }
-
         _voiceState.value = VoiceRecognitionState.Success("성공")
         requestCorrectAnswer(wavBytes)
     }
