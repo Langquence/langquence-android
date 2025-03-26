@@ -12,7 +12,7 @@ import java.util.*
 
 private val log = KotlinLogging.logger {}
 
-object AudioUtils {
+object WavUtil {
     /**
      * PCM 데이터에 WAV 헤더를 추가하는 함수
      *
