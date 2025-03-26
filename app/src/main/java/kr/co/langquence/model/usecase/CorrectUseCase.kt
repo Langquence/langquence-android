@@ -1,8 +1,10 @@
 package kr.co.langquence.model.usecase
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kr.co.langquence.model.domain.CorrectAnswer
 import kr.co.langquence.model.domain.Resource
 import kr.co.langquence.model.repository.CorrectRepository
@@ -23,5 +25,5 @@ class CorrectUseCase @Inject constructor(
 
             emit(Resource.Error(e.message))
         }
-    }
+    }.flowOn(Dispatchers.IO)
 }
