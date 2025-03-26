@@ -30,7 +30,7 @@ class NetworkInfraModule {
 		okHttpClient: OkHttpClient
 	): Retrofit.Builder {
 		return Retrofit.Builder()
-			.baseUrl("http://192.168.35.73:8080/api/v1/")
+			.baseUrl("http://192.168.35.9:8080/api/v1/")
 			.addConverterFactory(GsonConverterFactory.create(gson))
 			.client(okHttpClient)
 	}
