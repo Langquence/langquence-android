@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kr.co.langquence.common.helper.AudioRecorder
@@ -43,8 +44,7 @@ class VoiceRecordViewModel @Inject constructor(
     private val audioRecorder = AudioRecorder(context, viewModelScope)
     private val recordingTimer = RecordingTimer(
         maxTimeMs = MAX_RECORDING_TIME_MS,
-        intervalMs = COUNTDOWN_INTERVAL,
-        onFinish = { stopVoiceRecord() }
+        intervalMs = COUNTDOWN_INTERVAL
     )
 
     private val _voiceState = MutableStateFlow<VoiceRecognitionState>(VoiceRecognitionState.Idle)
@@ -57,6 +57,16 @@ class VoiceRecordViewModel @Inject constructor(
 
     private val _correctState: MutableStateFlow<CorrectState> = MutableStateFlow(CorrectState())
     val correctState: StateFlow<CorrectState> = _correctState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            recordingTimer.isFinished
+                .filter { it }
+                .collect {
+                    stopVoiceRecord()
+                }
+        }
+    }
 
     /**
      * 음성 녹음 트리거.
@@ -110,6 +120,10 @@ class VoiceRecordViewModel @Inject constructor(
         log.info { "Stop voice record" }
         recordingTimer.cancel()
 
+        return convertPcmToWav()
+    }
+
+    private fun convertPcmToWav() {
         val result = audioRecorder.stopRecording()
             ?: run {
                 log.warn { "No audio data recorded!" }

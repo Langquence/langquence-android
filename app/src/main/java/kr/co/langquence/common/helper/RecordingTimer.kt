@@ -13,15 +13,16 @@ private val log = KotlinLogging.logger {}
  *
  * @property maxTimeMs 타이머 최대 시간 (기본값: 60초)
  * @property intervalMs 타이머 간격 (기본값: 1초)
- * @property onFinish 타이머 종료 시 실행할 람다 함수
  */
 class RecordingTimer(
     private val maxTimeMs: Long = 60000L,
-    private val intervalMs: Long = 1000L,
-    private val onFinish: () -> Unit
+    private val intervalMs: Long = 1000L
 ) {
     private val _timerValue = MutableStateFlow((maxTimeMs / 1000L).toInt())
     val timerValue: StateFlow<Int> = _timerValue.asStateFlow()
+
+    private val _isFinished = MutableStateFlow(false)
+    val isFinished: StateFlow<Boolean> = _isFinished.asStateFlow()
 
     private var countDownTimer: CountDownTimer? = null
 
@@ -41,7 +42,7 @@ class RecordingTimer(
 
             override fun onFinish() {
                 log.info { "Timer finished" }
-                onFinish()
+                _isFinished.value = true
             }
         }.start()
     }
@@ -52,5 +53,6 @@ class RecordingTimer(
     fun cancel() {
         countDownTimer?.cancel()
         countDownTimer = null
+        _isFinished.value = false
     }
 }
