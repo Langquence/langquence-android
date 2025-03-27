@@ -13,7 +13,6 @@ private val log = KotlinLogging.logger {}
  *
  * @property maxTimeMs 타이머 최대 시간 (기본값: 60초)
  * @property intervalMs 타이머 간격 (기본값: 1초)
- * @property onFinish 타이머 종료 시 실행할 람다 함수
  */
 class RecordingTimer(
     private val maxTimeMs: Long = 60000L,
