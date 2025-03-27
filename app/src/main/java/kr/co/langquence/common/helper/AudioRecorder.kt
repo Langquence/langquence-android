@@ -137,11 +137,11 @@ class AudioRecorder(
                         .setChannelMask(RECORDER_CHANNELS)
                         .build()
                 )
-                .setBufferSizeInBytes(minBufferSize * 2)
+                .setBufferSizeInBytes(minBufferSize)
                 .build()
 
             if (audioRecord.state == AudioRecord.STATE_INITIALIZED) {
-                log.info { "AudioRecord initialized with sample rate: $sampleRate, buffer size: ${minBufferSize * 2}" }
+                log.info { "AudioRecord initialized with sample rate: $sampleRate, buffer size: $minBufferSize" }
                 recordSampleRate = sampleRate
                 bufferSizeInBytes = minBufferSize
                 return audioRecord
