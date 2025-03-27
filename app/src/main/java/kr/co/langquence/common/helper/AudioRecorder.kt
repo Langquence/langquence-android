@@ -162,13 +162,13 @@ class AudioRecorder(
         isRecording.set(true)
 
         recordingJob = coroutineScope.launch(Dispatchers.IO) {
-            val buffer = ByteArray(bufferSizeInBytes)
+            val shortBuffer = ShortArray(bufferSizeInBytes / 2)
 
             while (isRecording.get() && audioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
-                val bytesRead = audioRecord?.read(buffer, 0, buffer.size) ?: 0
+                val shortsRead = audioRecord?.read(shortBuffer, 0, shortBuffer.size, AudioRecord.READ_BLOCKING) ?: 0
 
-                if (bytesRead > 0) {
-                    collectAudioData(buffer, bytesRead)
+                if (shortsRead > 0) {
+                    collectAudioData(shortBuffer, shortsRead)
                 }
             }
 
@@ -179,17 +179,26 @@ class AudioRecorder(
     /**
      * 오디오 데이터를 수집하고 처리합니다.
      */
-    private fun collectAudioData(buffer: ByteArray, bytesRead: Int) {
-        audioData.write(buffer, 0, bytesRead)
+    private fun collectAudioData(shortBuffer: ShortArray, shortsRead: Int) {
+        val byteBuffer = ByteArray(shortsRead * 2)
+        for (i in 0 until shortsRead) {
+            byteBuffer[i * 2] = (shortBuffer[i].toInt() and 0xFF).toByte()
+            byteBuffer[i * 2 + 1] = (shortBuffer[i].toInt() shr 8 and 0xFF).toByte()
+        }
 
-        val volume = calcAverageVolume(buffer, bytesRead)
-        if (audioData.size() % (buffer.size * 10) == 0) {
+        audioData.write(byteBuffer, 0, byteBuffer.size)
+
+        val volume = calcAverageVolume(shortBuffer, shortsRead)
+        if (audioData.size() % (shortsRead * 20) == 0) {
             log.debug { "Current volume: $volume" }
         }
     }
 
     /**
      * 오디오 데이터의 평균 볼륨을 계산합니다.
+     *
+     * @param buffer 오디오 데이터 버퍼 (bytes)
+     * @param numberOfReadBytes 읽은 바이트 수
      */
     private fun calcAverageVolume(buffer: ByteArray, numberOfReadBytes: Int): Double {
         var totalAbsValue = 0.0
@@ -203,6 +212,22 @@ class AudioRecorder(
 
         val sampleCnt = numberOfReadBytes / 2
         return if (numberOfReadBytes > 0) totalAbsValue / sampleCnt else 0.0
+    }
+
+    /**
+     * 오디오 데이터의 평균 볼륨을 계산합니다.
+     *
+     * @param shortBuffer 오디오 데이터 버퍼 (shorts)
+     * @param numberOfReadShorts 읽은 short 수
+     */
+    private fun calcAverageVolume(shortBuffer: ShortArray, numberOfReadShorts: Int): Double {
+        var totalAbsValue = 0.0
+
+        for (i in 0 until numberOfReadShorts) {
+            totalAbsValue += abs(shortBuffer[i].toDouble())
+        }
+
+        return if (numberOfReadShorts > 0) totalAbsValue / numberOfReadShorts else 0.0
     }
 
     /**
