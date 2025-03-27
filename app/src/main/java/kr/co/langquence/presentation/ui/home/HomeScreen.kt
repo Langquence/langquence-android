@@ -46,6 +46,7 @@ fun HomeScreen(
 	val voiceState by viewModel.voiceState.collectAsState()
 	val permissionRequest by viewModel.permissionRequest.collectAsState()
 	val timerValue by viewModel.timerValue.collectAsState()
+	val correctState by viewModel.correctState.collectAsState()
 
 	val requestPermissionLauncher = rememberLauncherForActivityResult(
 		contract = ActivityResultContracts.RequestPermission(),
@@ -68,6 +69,16 @@ fun HomeScreen(
 	LaunchedEffect(permissionRequest) {
 		if (permissionRequest) {
 			requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+		}
+	}
+
+	LaunchedEffect(correctState) {
+		correctState.data?.let { data ->
+			log.info { "Correct answer received data: \n ${data.text}" }
+		}
+
+		correctState.error?.let { error ->
+			log.error { "Correct answer received error: \n ${error.message}" }
 		}
 	}
 
@@ -181,7 +192,7 @@ fun VoiceButton(
 	}
 }
 
-fun formatTime(seconds: Int): String = "%02d:%02d".format(seconds / 60, seconds % 60)
+private fun formatTime(seconds: Int): String = "%02d:%02d".format(seconds / 60, seconds % 60)
 
 @Preview(showBackground = true)
 @Composable
