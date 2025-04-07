@@ -45,10 +45,7 @@ fun HomeScreen(
     onNavigateToProfile: () -> Unit,
     onNavigateToResult: () -> Unit
 ) {
-    val voiceState by viewModel.voiceState.collectAsState()
-    val permissionRequest by viewModel.permissionRequest.collectAsState()
-    val timerValue by viewModel.timerValue.collectAsState()
-    val correctState by viewModel.correctState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
 
     val requestPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -61,25 +58,25 @@ fun HomeScreen(
     )
 
     // 음성 인식 성공 시 결과 화면으로 이동
-    LaunchedEffect(voiceState) {
-        if (voiceState is VoiceRecognitionState.Success) {
+    LaunchedEffect(uiState.recordState) {
+        if (uiState.recordState is VoiceRecognitionState.Success) {
             onNavigateToResult()
         }
     }
 
     // 음성 권한 요청 시, 권환 획득 컴포즈 실행
-    LaunchedEffect(permissionRequest) {
-        if (permissionRequest) {
+    LaunchedEffect(uiState.permissionRequest) {
+        if (uiState.permissionRequest) {
             requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
 
-    LaunchedEffect(correctState) {
-        correctState.data?.let { data ->
+    LaunchedEffect(uiState.correctState) {
+        uiState.correctState.data?.let { data ->
             log.info { "Correct answer received data: \n ${data.text}" }
         }
 
-        correctState.error?.let { error ->
+        uiState.correctState.error?.let { error ->
             log.error { "Correct answer received error: \n ${error.message}" }
         }
     }
@@ -101,8 +98,8 @@ fun HomeScreen(
     ) { paddingValues ->
         HomeContent(
             modifier = Modifier.padding(paddingValues),
-            isListening = voiceState is VoiceRecognitionState.Listening,
-            timerValue = timerValue,
+            isListening = uiState.recordState is VoiceRecognitionState.Listening,
+            timerValue = uiState.timerValue,
             onVoiceButtonClick = {
                 log.info { "Voice button clicked, toggling listening mode" }
 
