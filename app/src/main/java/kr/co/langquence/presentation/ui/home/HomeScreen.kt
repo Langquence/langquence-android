@@ -62,10 +62,14 @@ fun HomeScreen(
         when (uiState.recordState) {
             is VoiceRecognitionState.Error -> {
                 log.error { "Error occurred: ${(uiState.recordState as VoiceRecognitionState.Error).message}" }
+
+                voiceRecordViewModel.recordingStateForceReset()
             }
 
             is VoiceRecognitionState.NoInput -> {
                 log.warn { "입력이 감지되지 않았습니다." }
+
+                voiceRecordViewModel.recordingStateForceReset()
             }
 
             is VoiceRecognitionState.Networking -> {
@@ -74,6 +78,8 @@ fun HomeScreen(
 
             is VoiceRecognitionState.Success -> {
                 onNavigateToResult()
+
+                voiceRecordViewModel.recordingStateForceReset()
             }
 
             else -> Unit

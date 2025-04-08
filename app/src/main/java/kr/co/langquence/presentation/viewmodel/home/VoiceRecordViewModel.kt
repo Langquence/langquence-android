@@ -96,6 +96,10 @@ class VoiceRecordViewModel @Inject constructor(
         }
     }
 
+    fun recordingStateForceReset() = _uiState.update { currentState ->
+        currentState.copy(recordState = VoiceRecognitionState.Idle)
+    }
+
     /**
      * 마이크 권한 요청 이벤트 초기화
      */
