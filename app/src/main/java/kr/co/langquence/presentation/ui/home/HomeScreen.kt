@@ -41,26 +41,42 @@ private val log = KotlinLogging.logger {}
 
 @Composable
 fun HomeScreen(
-    viewModel: VoiceRecordViewModel = hiltViewModel(),
+    voiceRecordViewModel: VoiceRecordViewModel = hiltViewModel(),
     onNavigateToProfile: () -> Unit,
     onNavigateToResult: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by voiceRecordViewModel.uiState.collectAsState()
 
     val requestPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
             if (isGranted) {
-                viewModel.resetPermissionRequest()
-                viewModel.toggleListeningMode()
+                voiceRecordViewModel.resetPermissionRequest()
+                voiceRecordViewModel.toggleListeningMode()
             }
         }
     )
 
     // 음성 인식 성공 시 결과 화면으로 이동
     LaunchedEffect(uiState.recordState) {
-        if (uiState.recordState is VoiceRecognitionState.Success) {
-            onNavigateToResult()
+        when (uiState.recordState) {
+            is VoiceRecognitionState.Error -> {
+                log.error { "Error occurred: ${(uiState.recordState as VoiceRecognitionState.Error).message}" }
+            }
+
+            is VoiceRecognitionState.NoInput -> {
+                log.warn { "입력이 감지되지 않았습니다." }
+            }
+
+            is VoiceRecognitionState.Networking -> {
+                log.info { "네트워크 요청 중" }
+            }
+
+            is VoiceRecognitionState.Success -> {
+                onNavigateToResult()
+            }
+
+            else -> Unit
         }
     }
 
@@ -68,16 +84,6 @@ fun HomeScreen(
     LaunchedEffect(uiState.permissionRequest) {
         if (uiState.permissionRequest) {
             requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
-    }
-
-    LaunchedEffect(uiState.correctState) {
-        uiState.correctState.data?.let { data ->
-            log.info { "Correct answer received data: \n ${data.text}" }
-        }
-
-        uiState.correctState.error?.let { error ->
-            log.error { "Correct answer received error: \n ${error.message}" }
         }
     }
 
@@ -103,7 +109,7 @@ fun HomeScreen(
             onVoiceButtonClick = {
                 log.info { "Voice button clicked, toggling listening mode" }
 
-                viewModel.toggleListeningMode()
+                voiceRecordViewModel.toggleListeningMode()
             }
         )
     }
