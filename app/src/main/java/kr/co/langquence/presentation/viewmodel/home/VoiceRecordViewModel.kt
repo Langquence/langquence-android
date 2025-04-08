@@ -15,7 +15,6 @@ import kr.co.langquence.common.helper.RecordingTimer
 import kr.co.langquence.common.utils.WavUtil
 import kr.co.langquence.model.domain.Resource
 import kr.co.langquence.model.usecase.CorrectUseCase
-import kr.co.langquence.presentation.viewmodel.state.CorrectState
 import javax.inject.Inject
 
 private val log = KotlinLogging.logger {}
@@ -23,8 +22,7 @@ private val log = KotlinLogging.logger {}
 data class VoiceRecordUiState(
     val recordState: VoiceRecognitionState = VoiceRecognitionState.Idle,
     val permissionRequest: Boolean = false,
-    val timerValue: Int = 0,
-    val correctState: CorrectState = CorrectState()
+    val timerValue: Int = 0
 )
 
 sealed class VoiceRecognitionState {
@@ -39,7 +37,8 @@ sealed class VoiceRecognitionState {
 @HiltViewModel
 class VoiceRecordViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val correctUseCase: CorrectUseCase
+    private val correctUseCase: CorrectUseCase,
+    private val correctionItemViewModel: CorrectionItemViewModel
 ) : ViewModel() {
     private companion object {
         const val MAX_RECORDING_TIME_MS = 60000L
@@ -175,11 +174,15 @@ class VoiceRecordViewModel @Inject constructor(
                             when (result) {
                                 is Resource.Success -> {
                                     log.info { "Network request succeeded" }
-                                    _uiState.update { currentState ->
-                                        currentState.copy(
-                                            recordState = VoiceRecognitionState.Success("성공"),
-                                            correctState = CorrectState(data = result.data)
-                                        )
+
+                                    correctionItemViewModel.saveItem(
+                                        CorrectionItem.fromDomain(result.data!!)
+                                    ).also {
+                                        _uiState.update { currentState ->
+                                            currentState.copy(
+                                                recordState = VoiceRecognitionState.Success("성공")
+                                            )
+                                        }
                                     }
                                 }
 
@@ -191,8 +194,7 @@ class VoiceRecordViewModel @Inject constructor(
                                     log.error { "Network request failed: ${result.message}" }
                                     _uiState.update { currentState ->
                                         currentState.copy(
-                                            recordState = VoiceRecognitionState.Error("에러"),
-                                            correctState = CorrectState(reason = result.message)
+                                            recordState = VoiceRecognitionState.Error("네트워크 상태가 불안정합니다.")
                                         )
                                     }
                                 }
@@ -204,8 +206,7 @@ class VoiceRecordViewModel @Inject constructor(
                 withContext(Dispatchers.Main) {
                     _uiState.update { currentState ->
                         currentState.copy(
-                            recordState = VoiceRecognitionState.Error("에러"),
-                            correctState = CorrectState(reason = "Network error: ${e.message}")
+                            recordState = VoiceRecognitionState.Error("알 수 없는 오류가 발생했습니다.")
                         )
                     }
                 }
