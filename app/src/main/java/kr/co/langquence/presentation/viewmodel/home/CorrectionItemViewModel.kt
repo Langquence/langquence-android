@@ -1,5 +1,6 @@
 package kr.co.langquence.presentation.viewmodel.home
 
+import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,7 +35,7 @@ data class CorrectionItem(
 @HiltViewModel
 class CorrectionItemViewModel @Inject constructor(
     private val correctUseCase: CorrectUseCase
-) {
+) : ViewModel() {
     private val _items = MutableStateFlow<List<CorrectionItem>>(emptyList())
     val items: StateFlow<List<CorrectionItem>> = _items.asStateFlow()
 
