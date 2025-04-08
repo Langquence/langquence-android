@@ -8,7 +8,7 @@ import kr.co.langquence.model.domain.CorrectAnswer
 @Parcelize
 data class CorrectResponse(
     @SerializedName("id")
-    val id: Int,
+    val id: Long,
     @SerializedName("original")
     val original: String,
     @SerializedName("needs_correction")

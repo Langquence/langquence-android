@@ -1,7 +1,7 @@
 package kr.co.langquence.model.domain
 
 data class CorrectAnswer(
-    val id: Int,
+    val id: Long,
     val original: String,
     val needsCorrection: Boolean,
     val corrected: String,
