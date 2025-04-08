@@ -7,12 +7,25 @@ import kr.co.langquence.model.domain.CorrectAnswer
 
 @Parcelize
 data class CorrectResponse(
-	@SerializedName("text")
-	val text: String
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("original")
+    val original: String,
+    @SerializedName("needs_correction")
+    val needsCorrection: Boolean,
+    @SerializedName("corrected")
+    val corrected: String,
+    @SerializedName("explanation")
+    val explanation: String,
+    @SerializedName("alternatives")
+    val alternatives: List<String>,
 ) : Parcelable {
-	fun toEntity(): CorrectAnswer = CorrectAnswer(text)
-
-	override fun toString(): String {
-		return "CorrectResponse(text='$text')"
-	}
+    fun toEntity(): CorrectAnswer = CorrectAnswer(
+        id = id,
+        original = original,
+        needsCorrection = needsCorrection,
+        corrected = corrected,
+        explanation = explanation,
+        alternatives = alternatives
+    )
 }
