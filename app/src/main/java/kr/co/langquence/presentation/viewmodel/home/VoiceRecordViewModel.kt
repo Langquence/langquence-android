@@ -7,10 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kr.co.langquence.common.helper.AudioRecorder
@@ -18,15 +15,21 @@ import kr.co.langquence.common.helper.RecordingTimer
 import kr.co.langquence.common.utils.WavUtil
 import kr.co.langquence.model.domain.Resource
 import kr.co.langquence.model.usecase.CorrectUseCase
-import kr.co.langquence.presentation.viewmodel.state.CorrectState
 import javax.inject.Inject
 
 private val log = KotlinLogging.logger {}
 
+data class VoiceRecordUiState(
+    val recordState: VoiceRecognitionState = VoiceRecognitionState.Idle,
+    val permissionRequest: Boolean = false,
+    val timerValue: Int = 0
+)
+
 sealed class VoiceRecognitionState {
-    object Idle : VoiceRecognitionState()
-    object Listening : VoiceRecognitionState()
-    object NoInput : VoiceRecognitionState()
+    data object Idle : VoiceRecognitionState()
+    data object Listening : VoiceRecognitionState()
+    data object NoInput : VoiceRecognitionState()
+    data object Networking : VoiceRecognitionState()
     data class Success(val text: String) : VoiceRecognitionState()
     data class Error(val message: String) : VoiceRecognitionState()
 }
@@ -34,7 +37,8 @@ sealed class VoiceRecognitionState {
 @HiltViewModel
 class VoiceRecordViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val correctUseCase: CorrectUseCase
+    private val correctUseCase: CorrectUseCase,
+    private val correctionItemViewModel: CorrectionItemViewModel
 ) : ViewModel() {
     private companion object {
         const val MAX_RECORDING_TIME_MS = 60000L
@@ -47,18 +51,18 @@ class VoiceRecordViewModel @Inject constructor(
         intervalMs = COUNTDOWN_INTERVAL
     )
 
-    private val _voiceState = MutableStateFlow<VoiceRecognitionState>(VoiceRecognitionState.Idle)
-    val voiceState: StateFlow<VoiceRecognitionState> = _voiceState.asStateFlow()
-
-    private val _permissionRequest = MutableStateFlow(false)
-    val permissionRequest: StateFlow<Boolean> = _permissionRequest.asStateFlow()
-
-    val timerValue: StateFlow<Int> = recordingTimer.timerValue
-
-    private val _correctState: MutableStateFlow<CorrectState> = MutableStateFlow(CorrectState())
-    val correctState: StateFlow<CorrectState> = _correctState.asStateFlow()
+    private val _uiState = MutableStateFlow(VoiceRecordUiState())
+    val uiState: StateFlow<VoiceRecordUiState> = _uiState.asStateFlow()
 
     init {
+        // 타이머 시간 수집
+        viewModelScope.launch {
+            recordingTimer.timerValue.collect { seconds ->
+                _uiState.update { it.copy(timerValue = seconds) }
+            }
+        }
+
+        // 타이머 완료 감지
         viewModelScope.launch {
             recordingTimer.isFinished
                 .filter { it }
@@ -75,23 +79,34 @@ class VoiceRecordViewModel @Inject constructor(
      * @see VoiceRecognitionState
      */
     fun toggleListeningMode() {
-        log.info { "Toggle listening mode. Current state: ${_voiceState.value}" }
+        log.info { "Toggle listening mode. Current state: ${_uiState.value.recordState}" }
 
-        when (_voiceState.value) {
+        if (_uiState.value.recordState is VoiceRecognitionState.Networking) {
+            log.warn { "Can't toggle listening mode, ignoring." }
+            return
+        }
+
+        when (_uiState.value.recordState) {
             VoiceRecognitionState.Idle -> startVoiceRecord()
             VoiceRecognitionState.Listening -> stopVoiceRecord()
             else -> {
-                log.warn { "Can't toggle listening mode, ignoring. current state : ${_voiceState.value}" }
-                _voiceState.value = VoiceRecognitionState.Idle
+                log.warn { "Can't toggle listening mode, ignoring. current state : ${_uiState.value.recordState}" }
+                _uiState.update { it.copy(recordState = VoiceRecognitionState.Idle) }
             }
         }
+    }
+
+    fun recordingStateForceReset() = _uiState.update { currentState ->
+        currentState.copy(recordState = VoiceRecognitionState.Idle)
     }
 
     /**
      * 마이크 권한 요청 이벤트 초기화
      */
     fun resetPermissionRequest() {
-        _permissionRequest.value = false
+        _uiState.update { currentState ->
+            currentState.copy(permissionRequest = false)
+        }
     }
 
     /**
@@ -99,7 +114,9 @@ class VoiceRecordViewModel @Inject constructor(
      */
     private fun requestAudioPermission() {
         log.info { "Request audio permission" }
-        _permissionRequest.value = true
+        _uiState.update { currentState ->
+            currentState.copy(permissionRequest = true)
+        }
     }
 
     private fun startVoiceRecord() {
@@ -110,9 +127,13 @@ class VoiceRecordViewModel @Inject constructor(
 
         if (audioRecorder.startRecording()) {
             recordingTimer.start()
-            _voiceState.value = VoiceRecognitionState.Listening
+            _uiState.update { currentState ->
+                currentState.copy(recordState = VoiceRecognitionState.Listening)
+            }
         } else {
-            _voiceState.value = VoiceRecognitionState.Error("오디오 녹음을 초기화할 수 없습니다")
+            _uiState.update { currentState ->
+                currentState.copy(recordState = VoiceRecognitionState.Error("It is not possible to initialize audio recording"))
+            }
         }
     }
 
@@ -127,7 +148,11 @@ class VoiceRecordViewModel @Inject constructor(
         val result = audioRecorder.stopRecording()
             ?: run {
                 log.warn { "No audio data recorded!" }
-                _voiceState.value = VoiceRecognitionState.NoInput
+
+                _uiState.update { currentState ->
+                    currentState.copy(recordState = VoiceRecognitionState.NoInput)
+                }
+
                 return
             }
 
@@ -135,7 +160,10 @@ class VoiceRecordViewModel @Inject constructor(
         val wavBytes = WavUtil.addWavHeader(audioBytes, sampleRate)
         log.info { "Created WAV stream with size: ${wavBytes.size} bytes" }
 
-        _voiceState.value = VoiceRecognitionState.Success("성공")
+        _uiState.update { currentState ->
+            currentState.copy(recordState = VoiceRecognitionState.Networking)
+        }
+
         requestCorrectAnswer(wavBytes)
     }
 
@@ -150,7 +178,16 @@ class VoiceRecordViewModel @Inject constructor(
                             when (result) {
                                 is Resource.Success -> {
                                     log.info { "Network request succeeded" }
-                                    _correctState.value = CorrectState(data = result.data)
+
+                                    correctionItemViewModel.saveItem(
+                                        CorrectionItem.fromDomain(result.data!!)
+                                    ).also {
+                                        _uiState.update { currentState ->
+                                            currentState.copy(
+                                                recordState = VoiceRecognitionState.Success("성공")
+                                            )
+                                        }
+                                    }
                                 }
 
                                 is Resource.Loading -> {
@@ -159,7 +196,11 @@ class VoiceRecordViewModel @Inject constructor(
 
                                 is Resource.Error -> {
                                     log.error { "Network request failed: ${result.message}" }
-                                    _correctState.value = CorrectState(reason = result.message)
+                                    _uiState.update { currentState ->
+                                        currentState.copy(
+                                            recordState = VoiceRecognitionState.Error("네트워크 상태가 불안정합니다.")
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -167,7 +208,11 @@ class VoiceRecordViewModel @Inject constructor(
             } catch (e: Exception) {
                 log.error(e) { "Error during network request: ${e.message}" }
                 withContext(Dispatchers.Main) {
-                    _correctState.value = CorrectState(reason = "네트워크 오류: ${e.message}")
+                    _uiState.update { currentState ->
+                        currentState.copy(
+                            recordState = VoiceRecognitionState.Error("알 수 없는 오류가 발생했습니다.")
+                        )
+                    }
                 }
             }
         }

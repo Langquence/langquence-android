@@ -1,8 +1,10 @@
 package kr.co.langquence.model.domain
 
-import com.google.gson.annotations.SerializedName
-
 data class CorrectAnswer(
-	@SerializedName("text")
-	val text: String
+    val id: Long,
+    val original: String,
+    val needsCorrection: Boolean,
+    val corrected: String,
+    val explanation: String,
+    val alternatives: List<String>
 )

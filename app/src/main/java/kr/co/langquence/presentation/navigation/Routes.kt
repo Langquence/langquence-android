@@ -1,10 +1,17 @@
 package kr.co.langquence.presentation.navigation
 
+import kotlinx.serialization.Serializable
+
 /**
  * 앱 내 네비게이션 경로 정의
  */
 object Routes {
-    const val HOME_SCREEN = "home_screen"
-    const val PROFILE_SCREEN = "profile_screen"
-    const val VOICE_RESULT_SCREEN = "voice_result"
+    @Serializable
+    object Home
+
+    @Serializable
+    object Profile
+
+    @Serializable
+    object Correction
 }
