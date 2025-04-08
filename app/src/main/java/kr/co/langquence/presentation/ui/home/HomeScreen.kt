@@ -58,6 +58,7 @@ fun HomeScreen(
     )
 
     // 음성 인식 성공 시 결과 화면으로 이동
+    // @TODO: 예외, 네트워킹 등에 대해 별도의 작업 필요.
     LaunchedEffect(uiState.recordState) {
         when (uiState.recordState) {
             is VoiceRecognitionState.Error -> {
