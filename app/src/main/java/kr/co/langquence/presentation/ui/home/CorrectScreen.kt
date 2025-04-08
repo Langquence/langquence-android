@@ -78,8 +78,6 @@ fun CorrectScreen(
                                 textAlign = TextAlign.Center
                             )
 
-                            Spacer(modifier = Modifier.height(8.dp))
-
                             Text(
                                 text = "수정된 텍스트: ${correction.corrected}",
                                 color = Color.White,
@@ -88,6 +86,8 @@ fun CorrectScreen(
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
         }
